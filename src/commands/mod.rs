@@ -1,9 +1,10 @@
-mod exit;
 mod echo;
+mod exit;
 mod help;
+mod type_cmd;
 
-use std::collections::HashMap;
 use crate::command::CommandHandler;
+use std::collections::HashMap;
 
 pub struct CommandRegistry {
     handlers: HashMap<String, Box<dyn CommandHandler>>,
@@ -17,10 +18,8 @@ impl CommandRegistry {
 
         registry.register(Box::new(exit::ExitHandler));
         registry.register(Box::new(echo::EchoHandler));
-
-        // Create help handler with access to existing commands
-        let help_handler = help::HelpHandler::new(&registry);
-        registry.register(Box::new(help_handler));
+        registry.register(Box::new(type_cmd::TypeHandler));
+        registry.register(Box::new(help::HelpHandler));
 
         registry
     }
@@ -29,11 +28,11 @@ impl CommandRegistry {
         self.handlers.insert(handler.name().to_string(), handler);
     }
 
-    pub fn get (&self, name: &str) -> Option<&Box<dyn CommandHandler>> {
+    pub fn get(&self, name: &str) -> Option<&Box<dyn CommandHandler>> {
         self.handlers.get(name)
     }
 
-    pub fn list_commands(&self) -> Vec<&str>{
+    pub fn list_commands(&self) -> Vec<&str> {
         self.handlers.keys().map(|x| x.as_str()).collect()
     }
 }

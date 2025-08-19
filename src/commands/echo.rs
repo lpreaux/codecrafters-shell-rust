@@ -1,4 +1,5 @@
 use crate::command::CommandHandler;
+use crate::commands::CommandRegistry;
 use anyhow::Result;
 
 pub struct EchoHandler;
@@ -8,7 +9,7 @@ impl CommandHandler for EchoHandler {
         "echo"
     }
 
-    fn execute(&self, args: &[&str]) -> Result<bool> {
+    fn execute(&self, args: &[&str], _registry: &CommandRegistry) -> Result<bool> {
         println!("{}", args.join(" "));
         Ok(true)
     }

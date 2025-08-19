@@ -1,5 +1,5 @@
-use std::io::Write;
 use crate::commands::CommandRegistry;
+use std::io::Write;
 
 pub struct Shell {
     command_registry: CommandRegistry,
@@ -23,7 +23,7 @@ impl Shell {
         let args = &parts[1..];
 
         if let Some(cmd) = self.command_registry.get(cmd_name) {
-            return cmd.execute(args).unwrap_or_else(|err| {
+            return cmd.execute(args, &self.command_registry).unwrap_or_else(|err| {
                 println!("Error: {}", err);
                 true
             });
