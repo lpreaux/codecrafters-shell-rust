@@ -22,11 +22,25 @@ impl Shell {
         let cmd_name = parts[0];
         let args = &parts[1..];
 
+        // First check built-in commands
         if let Some(cmd) = self.command_registry.get(cmd_name) {
-            return cmd.execute(args, &self.command_registry).unwrap_or_else(|err| {
-                println!("Error: {}", err);
-                true
-            });
+            return cmd
+                .execute(args, &self.command_registry)
+                .unwrap_or_else(|err| {
+                    println!("Error: {}", err);
+                    true
+                });
+        }
+
+        // Then check PATH
+        if let Some(_) = crate::utils::path::find_executable_in_path(cmd_name) {
+            return match std::process::Command::new(&cmd_name).args(args).status() {
+                Ok(_) => true,
+                Err(e) => {
+                    println!("Error executing {}: {}", cmd_name, e);
+                    true
+                }
+            };
         }
 
         println!("{}: command not found", cmd_name);

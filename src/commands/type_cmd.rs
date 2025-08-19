@@ -1,8 +1,6 @@
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
 use anyhow::{anyhow, Result};
-use std::fs::File;
-use std::os::unix::fs::PermissionsExt;
 
 pub struct TypeHandler;
 
@@ -22,20 +20,12 @@ impl CommandHandler for TypeHandler {
             return Ok(true);
         }
 
-        for path in std::env::split_paths(&std::env::var("PATH")?) {
-            let path = path.join(args[0]);
-            if path.exists() {
-                if path.is_file() {
-                    let permissions = File::open(&path)?.metadata()?.permissions();
-                    if permissions.mode() & 0o111 != 0 {
-                        println!("{} is {}", args[0], path.to_str().unwrap());
-                        return Ok(true);
-                    }
-                }
-            }
+        if let Some(path) = crate::utils::path::find_executable_in_path(args[0]) {
+            println!("{} is {}", args[0], path.to_str().unwrap());
+        } else {
+            println!("{}: not found", args[0]);
         }
 
-        println!("{}: not found", args[0]);
         Ok(true)
     }
 
