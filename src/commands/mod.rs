@@ -2,6 +2,7 @@ mod echo;
 mod exit;
 mod help;
 mod type_cmd;
+mod pwd;
 
 use crate::command::CommandHandler;
 use std::collections::HashMap;
@@ -18,6 +19,7 @@ impl CommandRegistry {
 
         registry.register(Box::new(exit::ExitHandler));
         registry.register(Box::new(echo::EchoHandler));
+        registry.register(Box::new(pwd::PwdHandler));
         registry.register(Box::new(type_cmd::TypeHandler));
         registry.register(Box::new(help::HelpHandler));
 
