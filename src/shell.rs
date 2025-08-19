@@ -27,7 +27,7 @@ impl Shell {
             return cmd
                 .execute(args, &self.command_registry)
                 .unwrap_or_else(|err| {
-                    println!("Error: {}", err);
+                    println!("{}", err);
                     true
                 });
         }
@@ -50,7 +50,17 @@ impl Shell {
     pub fn run(&self) {
         loop {
             let mut input = String::new();
+
+            // Show current directory in prompt
+           /* let current_dir = std::env::current_dir()
+            .ok()
+            .and_then(|path| path.file_name()?.to_str().map(String::from))
+            .unwrap_or_else(|| "shell".to_string());
+
+            print!("{}$ ", current_dir);*/
+
             print!("$ ");
+
             std::io::stdout().flush().unwrap();
             std::io::stdin().read_line(&mut input).unwrap();
 
