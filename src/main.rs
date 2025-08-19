@@ -1,16 +1,10 @@
-#[allow(unused_imports)]
-use std::io::{self, Write};
+mod command;
+mod commands;
+mod shell;
+
+use shell::Shell;
 
 fn main() {
-    loop {
-        // Uncomment this block to pass the first stage
-        print!("$ ");
-        io::stdout().flush().unwrap();
-
-        // Wait for user input
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-
-        println!("{}: command not found", input.trim());
-    }
+    let shell = Shell::new();
+    shell.run();
 }
