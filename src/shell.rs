@@ -23,7 +23,7 @@ impl Shell {
         let args = &parts[1..];
 
         if let Some(cmd) = self.command_registry.get(cmd_name) {
-            cmd.execute(args).unwrap_or_else(|err| {
+            return cmd.execute(args).unwrap_or_else(|err| {
                 println!("Error: {}", err);
                 true
             });

@@ -1,4 +1,6 @@
 mod exit;
+mod echo;
+mod help;
 
 use std::collections::HashMap;
 use crate::command::CommandHandler;
@@ -14,6 +16,11 @@ impl CommandRegistry {
         };
 
         registry.register(Box::new(exit::ExitHandler));
+        registry.register(Box::new(echo::EchoHandler));
+
+        // Create help handler with access to existing commands
+        let help_handler = help::HelpHandler::new(&registry);
+        registry.register(Box::new(help_handler));
 
         registry
     }
