@@ -62,8 +62,8 @@ impl Parser {
                 Token::QuotedString(content, '\'') => {
                     current_arg.push_str(&content);
                 }
-                Token::QuotedString(_, '"') => {
-                    bail!("Double quotes not yet supported");
+                Token::QuotedString(content, '"') => {
+                    current_arg.push_str(&content);
                 }
                 _ => bail!("Unexpected token"),
             }
