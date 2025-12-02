@@ -90,6 +90,9 @@ impl Lexer {
         match state {
             LexerState::SingleQuoted => bail!("Unclosed single quote"),
             LexerState::DoubleQuoted => bail!("Unclosed double quote"),
+            LexerState::EscapedInDoubleQuote => {
+                bail!("Trailing backslash in double quote")
+            }
             LexerState::Escaped => bail!("Trailing backslash"),
             LexerState::Default => {
                 Self::push_word_if_not_empty(&mut tokens, &mut curr);
