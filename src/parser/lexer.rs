@@ -1,4 +1,4 @@
-use anyhow::{Result, bail };
+use anyhow::{Result, bail};
 use std::cmp::PartialEq;
 use crate::parser::token::Token;
 
@@ -10,20 +10,27 @@ enum LexerState {
     QuotedString(char),
 }
 
-
 impl Lexer {
     pub fn lex(input: &str) -> Result<Vec<Token>> {
         let mut tokens: Vec<Token> = Vec::new();
         let mut state: LexerState = LexerState::Default;
+        let mut escape_next = false;
         let mut curr = String::new();
 
         for ch in input.chars() {
+            // Gestion de l'échappement SEULEMENT hors quotes
+            if escape_next && state == LexerState::Default {
+                curr.push(ch);
+                escape_next = false;
+                continue;
+            }
+
             match ch {
                 ' ' => {
                     match state {
                         LexerState::QuotedString(_) => curr.push(ch),
                         LexerState::Default => {
-                            if !curr.is_empty() && LexerState::Default.eq(&state) {
+                            if !curr.is_empty() {
                                 tokens.push(Token::Word(curr.clone()));
                                 curr.clear();
                             }
@@ -33,9 +40,11 @@ impl Lexer {
                 },
                 '"' | '\'' => {
                     match state {
-                        LexerState::Default => state = LexerState::QuotedString(ch),
+                        LexerState::Default => {
+                            state = LexerState::QuotedString(ch);
+                        },
                         LexerState::QuotedString(quote_char) => {
-                            if quote_char == ch { // Vérifie que c'est le même type de quote
+                            if quote_char == ch {
                                 tokens.push(Token::QuotedString(
                                     curr.clone(),
                                     quote_char
@@ -43,12 +52,28 @@ impl Lexer {
                                 curr.clear();
                                 state = LexerState::Default;
                             } else {
-                                curr.push(ch); // Quote différent à l'intérieur
+                                curr.push(ch);
                             }
                         }
                     }
                 },
-                '\n' => continue,
+                '\\' => {
+                    match state {
+                        LexerState::Default => {
+                            escape_next = true;
+                        },
+                        LexerState::QuotedString(_) => {
+                            // Dans les quotes, \ est littéral pour l'instant
+                            curr.push(ch);
+                        }
+                    }
+                },
+                '\n' => {
+                    if state != LexerState::Default {
+                        curr.push(ch);
+                    }
+                    // Hors quotes, on ignore les newlines
+                },
                 _ => curr.push(ch),
             }
         }
