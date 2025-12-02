@@ -9,21 +9,23 @@ impl CommandHandler for TypeHandler {
         "type"
     }
 
-    fn execute(&self, args: &[&str], registry: &CommandRegistry) -> Result<bool> {
+    fn execute(&self, args: &[String], registry: &CommandRegistry) -> Result<bool> {
         if args.len() != 1 {
             return Err(anyhow!("type takes exactly one argument"));
         }
 
+        let cmd_name = &args[0];
         let builtin_commands: Vec<&str> = registry.list_commands();
-        if builtin_commands.contains(&args[0]) {
-            println!("{} is a shell builtin", args[0]);
+        
+        if builtin_commands.contains(&cmd_name.as_str()) {
+            println!("{} is a shell builtin", cmd_name);
             return Ok(true);
         }
 
-        if let Some(path) = crate::utils::path::find_executable_in_path(args[0]) {
-            println!("{} is {}", args[0], path.to_str().unwrap());
+        if let Some(path) = crate::utils::path::find_executable_in_path(cmd_name) {
+            println!("{} is {}", cmd_name, path.to_str().unwrap());
         } else {
-            println!("{}: not found", args[0]);
+            println!("{}: not found", cmd_name);
         }
 
         Ok(true)

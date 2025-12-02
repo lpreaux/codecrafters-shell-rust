@@ -1,5 +1,5 @@
-pub(crate) enum Token {
+pub enum Token {
     Word(String),
     Whitespace,
-    QuotedString(String),
+    QuotedString(String, char),
 }

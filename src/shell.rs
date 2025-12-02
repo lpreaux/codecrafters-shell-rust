@@ -1,5 +1,6 @@
 use crate::commands::CommandRegistry;
 use std::io::Write;
+use crate::parser::Parser;
 
 pub struct Shell {
     command_registry: CommandRegistry,
@@ -13,19 +14,18 @@ impl Shell {
     }
 
     pub fn execute_command(&self, input: &str) -> bool {
-        let parts: Vec<&str> = input.trim().split_whitespace().collect();
-
-        if parts.is_empty() {
-            return true;
-        }
-
-        let cmd_name = parts[0];
-        let args = &parts[1..];
+        let command = match Parser::parse(input) {
+            Ok(command) => command,
+            Err(err) => {
+                println!("Error parsing command: {}", err);
+                return true;
+            }
+        };
 
         // First check built-in commands
-        if let Some(cmd) = self.command_registry.get(cmd_name) {
+        if let Some(cmd) = self.command_registry.get(&command.name) {
             return cmd
-                .execute(args, &self.command_registry)
+                .execute(&command.args, &self.command_registry)
                 .unwrap_or_else(|err| {
                     println!("{}", err);
                     true
@@ -33,17 +33,17 @@ impl Shell {
         }
 
         // Then check PATH
-        if let Some(_) = crate::utils::path::find_executable_in_path(cmd_name) {
-            return match std::process::Command::new(&cmd_name).args(args).status() {
+        if let Some(_) = crate::utils::path::find_executable_in_path(&command.name) {
+            return match std::process::Command::new(&command.name).args(&command.args).status() {
                 Ok(_) => true,
                 Err(e) => {
-                    println!("Error executing {}: {}", cmd_name, e);
+                    println!("Error executing {}: {}", command.name, e);
                     true
                 }
             };
         }
 
-        println!("{}: command not found", cmd_name);
+        println!("{}: command not found", command.name);
         true
     }
 

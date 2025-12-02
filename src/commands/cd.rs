@@ -10,7 +10,7 @@ impl CommandHandler for CdHandler {
         "cd"
     }
 
-    fn execute(&self, args: &[&str], _registry: &CommandRegistry) -> Result<bool> {
+    fn execute(&self, args: &[String], _registry: &CommandRegistry) -> Result<bool> {
         let target_dir = if args.is_empty() {
             std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
         } else if args.len() == 1 {

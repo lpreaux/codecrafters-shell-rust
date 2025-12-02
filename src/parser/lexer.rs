@@ -1,5 +1,5 @@
+use anyhow::{Result, bail };
 use std::cmp::PartialEq;
-use crate::parser::token;
 use crate::parser::token::Token;
 
 pub struct Lexer;
@@ -7,34 +7,64 @@ pub struct Lexer;
 #[derive(PartialEq)]
 enum LexerState {
     Default,
-    QuotedString,
+    QuotedString(char),
 }
 
 
 impl Lexer {
-    pub fn lex(input: &str) {
-        let mut tokens: Vec<token::Token> = Vec::new();
+    pub fn lex(input: &str) -> Result<Vec<Token>> {
+        let mut tokens: Vec<Token> = Vec::new();
         let mut state: LexerState = LexerState::Default;
-        let mut curr: &str = "";
-        for char in input.split("") {
-            match char {
-                " " => {
-                    if !curr.is_empty() && LexerState::Default.eq(&state) {
-                        tokens.push(Token::Word(curr.to_string()))
-                        curr = "";
-                    }
-                    tokens.push(Token::Whitespace)
-                },
-                "\"" | "\'" => {
-                    if curr.is_empty() {
-                        curr += char.to_string().as_str();
-                    } else {
-                        tokens.push(Token::QuotedString(curr.to_string()));
-                        curr = "";
+        let mut curr = String::new();
+
+        for ch in input.chars() {
+            match ch {
+                ' ' => {
+                    match state {
+                        LexerState::QuotedString(_) => curr.push(ch),
+                        LexerState::Default => {
+                            if !curr.is_empty() && LexerState::Default.eq(&state) {
+                                tokens.push(Token::Word(curr.clone()));
+                                curr.clear();
+                            }
+                            tokens.push(Token::Whitespace)
+                        }
                     }
                 },
-                _ => curr += char.to_string().as_str();
+                '"' | '\'' => {
+                    match state {
+                        LexerState::Default => state = LexerState::QuotedString(ch),
+                        LexerState::QuotedString(quote_char) => {
+                            if quote_char == ch { // Vérifie que c'est le même type de quote
+                                tokens.push(Token::QuotedString(
+                                    curr.clone(),
+                                    quote_char
+                                ));
+                                curr.clear();
+                                state = LexerState::Default;
+                            } else {
+                                curr.push(ch); // Quote différent à l'intérieur
+                            }
+                        }
+                    }
+                },
+                '\n' => continue,
+                _ => curr.push(ch),
             }
         }
+
+        // Vérifier qu'il n'y a pas de quote non fermée
+        match state {
+            LexerState::QuotedString(quote_char) => {
+                bail!("Unclosed quote: {}", quote_char);
+            },
+            LexerState::Default => {
+                if !curr.is_empty() {
+                    tokens.push(Token::Word(curr));
+                }
+            }
+        }
+
+        Ok(tokens)
     }
 }

@@ -9,7 +9,7 @@ impl CommandHandler for ExitHandler {
         "exit"
     }
 
-    fn execute(&self, args: &[&str], _registry: &CommandRegistry) -> Result<bool> {
+    fn execute(&self, args: &[String], _registry: &CommandRegistry) -> Result<bool> {
         let code = args.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
         std::process::exit(code);
     }

@@ -9,7 +9,7 @@ impl CommandHandler for HelpHandler {
         "help"
     }
 
-    fn execute(&self, args: &[&str], registry: &CommandRegistry) -> Result<bool> {
+    fn execute(&self, args: &[String], registry: &CommandRegistry) -> Result<bool> {
         if let Some(cmd_name) = args.get(0) {
             if let Some(handler) = registry.get(cmd_name) {
                 println!("{}", handler.help());

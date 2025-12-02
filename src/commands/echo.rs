@@ -9,7 +9,7 @@ impl CommandHandler for EchoHandler {
         "echo"
     }
 
-    fn execute(&self, args: &[&str], _registry: &CommandRegistry) -> Result<bool> {
+    fn execute(&self, args: &[String], _registry: &CommandRegistry) -> Result<bool> {
         println!("{}", args.join(" "));
         Ok(true)
     }

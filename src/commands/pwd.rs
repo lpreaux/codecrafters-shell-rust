@@ -9,7 +9,7 @@ impl CommandHandler for PwdHandler {
         "pwd"
     }
 
-    fn execute(&self, _args: &[&str], _registry: &CommandRegistry) -> Result<bool> {
+    fn execute(&self, _args: &[String], _registry: &CommandRegistry) -> Result<bool> {
         println!("{}", std::env::current_dir()?.display());
         Ok(true)
     }
