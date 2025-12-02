@@ -9,6 +9,7 @@ enum LexerState {
     Escaped,
     SingleQuoted,
     DoubleQuoted,
+    EscapedInDoubleQuote,
 }
 
 impl Lexer {
@@ -21,10 +22,26 @@ impl Lexer {
 
         for ch in input.chars() {
             state = match (state, ch) {
-                // État Escaped : ajoute le char et retourne à Default
+                // État Escaped (hors quotes)
                 (LexerState::Escaped, ch) => {
                     curr.push(ch);
                     LexerState::Default
+                }
+
+                // État EscapedInDoubleQuote
+                (LexerState::EscapedInDoubleQuote, ch) => {
+                    match ch {
+                        '"' | '\\' => {
+                            // Caractères spéciaux : échappés
+                            curr.push(ch);
+                        }
+                        _ => {
+                            // Autres caractères : \ reste littéral
+                            curr.push('\\');
+                            curr.push(ch);
+                        }
+                    }
+                    LexerState::DoubleQuoted
                 }
 
                 // Default
@@ -58,6 +75,9 @@ impl Lexer {
                     tokens.push(Token::QuotedString(curr.clone(), '"'));
                     curr.clear();
                     LexerState::Default
+                }
+                (LexerState::DoubleQuoted, '\\') => {
+                    LexerState::EscapedInDoubleQuote
                 }
                 (LexerState::DoubleQuoted, ch) => {
                     curr.push(ch);
