@@ -1,95 +1,89 @@
 use anyhow::{Result, bail};
-use std::cmp::PartialEq;
 use crate::parser::token::Token;
 
 pub struct Lexer;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum LexerState {
     Default,
-    QuotedString(char),
+    Escaped,
+    SingleQuoted,
+    DoubleQuoted,
 }
 
 impl Lexer {
     pub fn lex(input: &str) -> Result<Vec<Token>> {
-        let mut tokens: Vec<Token> = Vec::new();
-        let mut state: LexerState = LexerState::Default;
-        let mut escape_next = false;
-        let mut curr = String::new();
+        // Estimation : en moyenne ~25% des caractères deviennent des tokens
+        let mut tokens = Vec::with_capacity(input.len() / 4);
+        let mut state = LexerState::Default;
+        // Capacité initiale raisonnable pour un mot/argument moyen
+        let mut curr = String::with_capacity(32);
 
         for ch in input.chars() {
-            // Gestion de l'échappement SEULEMENT hors quotes
-            if escape_next && state == LexerState::Default {
-                curr.push(ch);
-                escape_next = false;
-                continue;
-            }
+            state = match (state, ch) {
+                // État Escaped : ajoute le char et retourne à Default
+                (LexerState::Escaped, ch) => {
+                    curr.push(ch);
+                    LexerState::Default
+                }
 
-            match ch {
-                ' ' => {
-                    match state {
-                        LexerState::QuotedString(_) => curr.push(ch),
-                        LexerState::Default => {
-                            if !curr.is_empty() {
-                                tokens.push(Token::Word(curr.clone()));
-                                curr.clear();
-                            }
-                            tokens.push(Token::Whitespace)
-                        }
-                    }
-                },
-                '"' | '\'' => {
-                    match state {
-                        LexerState::Default => {
-                            state = LexerState::QuotedString(ch);
-                        },
-                        LexerState::QuotedString(quote_char) => {
-                            if quote_char == ch {
-                                tokens.push(Token::QuotedString(
-                                    curr.clone(),
-                                    quote_char
-                                ));
-                                curr.clear();
-                                state = LexerState::Default;
-                            } else {
-                                curr.push(ch);
-                            }
-                        }
-                    }
-                },
-                '\\' => {
-                    match state {
-                        LexerState::Default => {
-                            escape_next = true;
-                        },
-                        LexerState::QuotedString(_) => {
-                            // Dans les quotes, \ est littéral pour l'instant
-                            curr.push(ch);
-                        }
-                    }
-                },
-                '\n' => {
-                    if state != LexerState::Default {
-                        curr.push(ch);
-                    }
-                    // Hors quotes, on ignore les newlines
-                },
-                _ => curr.push(ch),
-            }
+                // Default
+                (LexerState::Default, ' ') => {
+                    Self::push_word_if_not_empty(&mut tokens, &mut curr);
+                    tokens.push(Token::Whitespace);
+                    LexerState::Default
+                }
+                (LexerState::Default, '\\') => LexerState::Escaped,
+                (LexerState::Default, '\'') => LexerState::SingleQuoted,
+                (LexerState::Default, '"') => LexerState::DoubleQuoted,
+                (LexerState::Default, '\n') => LexerState::Default,
+                (LexerState::Default, ch) => {
+                    curr.push(ch);
+                    LexerState::Default
+                }
+
+                // Single Quoted
+                (LexerState::SingleQuoted, '\'') => {
+                    tokens.push(Token::QuotedString(curr.clone(), '\''));
+                    curr.clear();
+                    LexerState::Default
+                }
+                (LexerState::SingleQuoted, ch) => {
+                    curr.push(ch);
+                    LexerState::SingleQuoted
+                }
+
+                // Double Quoted
+                (LexerState::DoubleQuoted, '"') => {
+                    tokens.push(Token::QuotedString(curr.clone(), '"'));
+                    curr.clear();
+                    LexerState::Default
+                }
+                (LexerState::DoubleQuoted, ch) => {
+                    curr.push(ch);
+                    LexerState::DoubleQuoted
+                }
+            };
         }
 
-        // Vérifier qu'il n'y a pas de quote non fermée
+        // Vérifications finales
         match state {
-            LexerState::QuotedString(quote_char) => {
-                bail!("Unclosed quote: {}", quote_char);
-            },
+            LexerState::SingleQuoted => bail!("Unclosed single quote"),
+            LexerState::DoubleQuoted => bail!("Unclosed double quote"),
+            LexerState::Escaped => bail!("Trailing backslash"),
             LexerState::Default => {
-                if !curr.is_empty() {
-                    tokens.push(Token::Word(curr));
-                }
+                Self::push_word_if_not_empty(&mut tokens, &mut curr);
             }
         }
 
         Ok(tokens)
+    }
+
+    #[inline]
+    fn push_word_if_not_empty(tokens: &mut Vec<Token>, curr: &mut String) {
+        if !curr.is_empty() {
+            tokens.push(Token::Word(curr.clone()));
+            curr.clear();
+        }
     }
 }
