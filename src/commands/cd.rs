@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::PathBuf;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
@@ -10,7 +11,11 @@ impl CommandHandler for CdHandler {
         "cd"
     }
 
-    fn execute(&self, args: &[String], _registry: &CommandRegistry) -> Result<bool> {
+    fn execute(&self,
+               args: &[String],
+               _registry: &CommandRegistry,
+               _output: &mut dyn Write,
+    ) -> Result<bool> {
         let target_dir = if args.is_empty() {
             std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
         } else if args.len() == 1 {

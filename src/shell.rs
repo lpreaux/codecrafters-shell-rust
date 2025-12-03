@@ -1,5 +1,8 @@
+use std::fs::File;
+use std::io;
 use crate::commands::CommandRegistry;
 use std::io::Write;
+use std::process::{Command, Stdio};
 use crate::parser::Parser;
 
 pub struct Shell {
@@ -22,29 +25,74 @@ impl Shell {
             }
         };
 
-        // First check built-in commands
+        // Déterminer la destination de sortie
+        let stdout_redirect = command
+            .redirections
+            .iter()
+            .find(|(fd, _)| fd == "stdout"); // Ton parser utilise "stdin" pour stdout
+
+        // Commandes internes
         if let Some(cmd) = self.command_registry.get(&command.name) {
-            return cmd
-                .execute(&command.args, &self.command_registry)
+            return self
+                .execute_builtin(cmd, &command.args, stdout_redirect)
                 .unwrap_or_else(|err| {
                     println!("{}", err);
                     true
                 });
         }
 
-        // Then check PATH
-        if let Some(_) = crate::utils::path::find_executable_in_path(&command.name) {
-            return match std::process::Command::new(&command.name).args(&command.args).status() {
-                Ok(_) => true,
-                Err(e) => {
-                    println!("Error executing {}: {}", command.name, e);
+        // Commandes externes
+        if crate::utils::path::find_executable_in_path(&command.name).is_some() {
+            return self
+                .execute_external(&command.name, &command.args, stdout_redirect)
+                .unwrap_or_else(|err| {
+                    println!("Error executing {}: {}", command.name, err);
                     true
-                }
-            };
+                });
         }
 
         println!("{}: command not found", command.name);
         true
+    }
+
+    fn execute_builtin(
+        &self,
+        cmd: &Box<dyn crate::command::CommandHandler>,
+        args: &[String],
+        redirect: Option<&(String, String)>,
+    ) -> anyhow::Result<bool> {
+        match redirect {
+            Some((_, filename)) => {
+                let mut file = File::create(filename)?;
+                cmd.execute(args, &self.command_registry, &mut file)
+            }
+            None => {
+                let mut stdout = io::stdout();
+                cmd.execute(args, &self.command_registry, &mut stdout)
+            }
+        }
+    }
+
+    fn execute_external(
+        &self,
+        name: &str,
+        args: &[String],
+        redirect: Option<&(String, String)>,
+    ) -> anyhow::Result<bool> {
+        let mut cmd = Command::new(name);
+        cmd.args(args);
+
+        if let Some((_, filename)) = redirect {
+            let file = File::create(filename)?;
+            cmd.stdout(Stdio::from(file));
+        }
+
+        // Important: stderr reste sur le terminal pour les erreurs
+        let status = cmd.status()?;
+
+        // Toujours retourner true pour continuer le shell
+        // même si la commande échoue
+        Ok(true)
     }
 
     pub fn run(&self) {
@@ -70,3 +118,5 @@ impl Shell {
         }
     }
 }
+
+

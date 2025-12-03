@@ -1,3 +1,4 @@
+use std::io::Write;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
 use anyhow::Result;
@@ -9,7 +10,11 @@ impl CommandHandler for ExitHandler {
         "exit"
     }
 
-    fn execute(&self, args: &[String], _registry: &CommandRegistry) -> Result<bool> {
+    fn execute(&self,
+               args: &[String],
+               _registry: &CommandRegistry,
+               _output: &mut dyn Write,
+    ) -> Result<bool> {
         let code = args.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
         std::process::exit(code);
     }

@@ -8,6 +8,7 @@ pub struct Parser;
 pub struct ParsedCommand {
     pub name: String,
     pub args: Vec<String>,
+    pub redirections: Vec<(String, String)>,
 }
 
 impl Parser {
@@ -42,9 +43,40 @@ impl Parser {
         // Parse arguments (grouping consecutive non-whitespace tokens)
         let mut args: Vec<String> = Vec::new();
         let mut current_arg = String::new();
+        let mut redirections: Vec<(String, String)> = Vec::new();
 
         while let Some(token) = iter.next() {
             match token {
+                Token::Operator('>') => {
+                    // Save current argument if any
+                    if !current_arg.is_empty() {
+                        args.push(current_arg.clone());
+                        current_arg.clear();
+                    }
+
+                    iter.next(); // consume '>'
+
+                    // Skip whitespace after '>'
+                    while matches!(iter.peek(), Some(Token::Whitespace)) {
+                        iter.next();
+                    }
+
+                    // Get filename
+                    match iter.next() {
+                        Some(Token::Word(filename)) => {
+                            redirections.push(("stdout".to_string(), filename));
+                        }
+                        Some(Token::QuotedString(filename, _)) => {
+                            redirections.push(("stdout".to_string(), filename));
+                        }
+                        _ => bail!("Expected filename after '>'"),
+                    }
+
+                    // Skip whitespace after filename
+                    while matches!(iter.peek(), Some(Token::Whitespace)) {
+                        iter.next();
+                    }
+                }
                 Token::Whitespace => {
                     // Whitespace separates arguments
                     if !current_arg.is_empty() {
@@ -64,7 +96,7 @@ impl Parser {
                 }
                 Token::QuotedString(content, '"') => {
                     current_arg.push_str(&content);
-                }
+                },
                 _ => bail!("Unexpected token"),
             }
 
@@ -78,6 +110,7 @@ impl Parser {
         Ok(ParsedCommand {
             name,
             args,
+            redirections
         })
     }
 }

@@ -54,6 +54,10 @@ impl Lexer {
                 (LexerState::Default, '\'') => LexerState::SingleQuoted,
                 (LexerState::Default, '"') => LexerState::DoubleQuoted,
                 (LexerState::Default, '\n') => LexerState::Default,
+                (LexerState::Default, '>') => {
+                    tokens.push(Token::Operator('>'));
+                    LexerState::Default
+                }
                 (LexerState::Default, ch) => {
                     curr.push(ch);
                     LexerState::Default

@@ -1,3 +1,4 @@
+use std::io::Write;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
 use anyhow::Result;
@@ -9,8 +10,12 @@ impl CommandHandler for EchoHandler {
         "echo"
     }
 
-    fn execute(&self, args: &[String], _registry: &CommandRegistry) -> Result<bool> {
-        println!("{}", args.join(" "));
+    fn execute(&self,
+               args: &[String],
+               _registry: &CommandRegistry,
+               output: &mut dyn Write
+    ) -> Result<bool> {
+        writeln!(output, "{}", args.join(" "))?;
         Ok(true)
     }
 

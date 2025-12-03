@@ -1,3 +1,4 @@
+use std::io::Write;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
 use anyhow::Result;
@@ -9,18 +10,22 @@ impl CommandHandler for HelpHandler {
         "help"
     }
 
-    fn execute(&self, args: &[String], registry: &CommandRegistry) -> Result<bool> {
+    fn execute(&self,
+               args: &[String],
+               registry: &CommandRegistry,
+               output: &mut dyn Write,
+    ) -> Result<bool> {
         if let Some(cmd_name) = args.get(0) {
             if let Some(handler) = registry.get(cmd_name) {
-                println!("{}", handler.help());
+                writeln!(output, "{}", handler.help())?;
             } else {
-                println!("Unknown command: {}", cmd_name);
+                writeln!(output, "Unknown command: {}", cmd_name)?;
             }
         } else {
-            println!("Available commands:");
+            writeln!(output, "Available commands:")?;
             for cmd_name in registry.list_commands() {
                 if let Some(handler) = registry.get(cmd_name) {
-                    println!("  {}", handler.help());
+                    writeln!(output, "  {}", handler.help())?;
                 }
             }
         }

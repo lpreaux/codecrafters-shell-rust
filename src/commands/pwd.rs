@@ -1,3 +1,4 @@
+use std::io::Write;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
 use anyhow::Result;
@@ -9,8 +10,12 @@ impl CommandHandler for PwdHandler {
         "pwd"
     }
 
-    fn execute(&self, _args: &[String], _registry: &CommandRegistry) -> Result<bool> {
-        println!("{}", std::env::current_dir()?.display());
+    fn execute(&self,
+               _args: &[String],
+               _registry: &CommandRegistry,
+               output: &mut dyn Write,
+    ) -> Result<bool> {
+        writeln!(output, "{}", std::env::current_dir()?.display())?;
         Ok(true)
     }
 
