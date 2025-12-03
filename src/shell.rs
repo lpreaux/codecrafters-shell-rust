@@ -247,6 +247,8 @@ impl Shell {
             match matches.len() {
                 0 => {
                     // Aucune correspondance
+                    print!("\x07");
+                    io::stdout().flush().unwrap();
                 }
                 1 => {
                     // Une seule correspondance : compléter
