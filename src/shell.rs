@@ -257,9 +257,9 @@ impl Shell {
                         print!("\x08 \x08");
                     }
 
-                    // Remplacer par la complétion
-                    *input = completion.to_string();
-                    print!("{} ", input);
+                    // Remplacer par la complétion + espace
+                    *input = format!("{} ", completion);
+                    print!("{}", input);
                     io::stdout().flush().unwrap();
                 }
                 _ => {
