@@ -8,7 +8,8 @@ pub trait CommandHandler {
         &self,
         args: &[String],
         registry: &CommandRegistry,
-        output: &mut dyn Write,
+        stdout: &mut dyn Write,
+        stderr: &mut dyn Write,
     ) -> Result<bool>;
     fn help(&self) -> &'static str;
 }

@@ -13,9 +13,10 @@ impl CommandHandler for EchoHandler {
     fn execute(&self,
                args: &[String],
                _registry: &CommandRegistry,
-               output: &mut dyn Write
+               stdout: &mut dyn Write,
+               _stderr: &mut dyn Write,
     ) -> Result<bool> {
-        writeln!(output, "{}", args.join(" "))?;
+        writeln!(stdout, "{}", args.join(" "))?;
         Ok(true)
     }
 

@@ -13,7 +13,8 @@ impl CommandHandler for ExitHandler {
     fn execute(&self,
                args: &[String],
                _registry: &CommandRegistry,
-               _output: &mut dyn Write,
+               _stdout: &mut dyn Write,
+               _stderr: &mut dyn Write,
     ) -> Result<bool> {
         let code = args.get(0).and_then(|s| s.parse().ok()).unwrap_or(0);
         std::process::exit(code);

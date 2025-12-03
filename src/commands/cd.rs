@@ -14,19 +14,22 @@ impl CommandHandler for CdHandler {
     fn execute(&self,
                args: &[String],
                _registry: &CommandRegistry,
-               _output: &mut dyn Write,
+               _stdout: &mut dyn Write,
+               stderr: &mut dyn Write,
     ) -> Result<bool> {
         let target_dir = if args.is_empty() {
             std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
         } else if args.len() == 1 {
             args[0].to_string()
         } else {
-            return Err(anyhow!("cd: too many arguments"));
+            writeln!(stderr, "cd: too many arguments")?;
+            return Ok(true);
         };
 
         let new_path = if target_dir.starts_with('/') || target_dir.starts_with('~') {
             if target_dir.starts_with('~') {
-                let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+                let home = std::env::var("HOME")
+                    .unwrap_or_else(|_| "/".to_string());
                 PathBuf::from(target_dir.replacen('~', &home, 1))
             } else {
                 PathBuf::from(&target_dir)
@@ -36,11 +39,13 @@ impl CommandHandler for CdHandler {
         };
 
         if !new_path.exists() {
-            return Err(anyhow!("cd: {}: No such file or directory", target_dir));
+            writeln!(stderr, "cd: {}: No such file or directory", target_dir)?;
+            return Ok(true);
         }
 
         if !new_path.is_dir() {
-            return Err(anyhow!("cd: {}: Not a directory", target_dir));
+            writeln!(stderr, "cd: {}: Not a directory", target_dir)?;
+            return Ok(true);
         }
 
         std::env::set_current_dir(new_path)?;

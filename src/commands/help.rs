@@ -13,19 +13,20 @@ impl CommandHandler for HelpHandler {
     fn execute(&self,
                args: &[String],
                registry: &CommandRegistry,
-               output: &mut dyn Write,
+               stdout: &mut dyn Write,
+               stderr: &mut dyn Write,
     ) -> Result<bool> {
         if let Some(cmd_name) = args.get(0) {
             if let Some(handler) = registry.get(cmd_name) {
-                writeln!(output, "{}", handler.help())?;
+                writeln!(stdout, "{}", handler.help())?;
             } else {
-                writeln!(output, "Unknown command: {}", cmd_name)?;
+                writeln!(stderr, "Unknown command: {}", cmd_name)?;
             }
         } else {
-            writeln!(output, "Available commands:")?;
+            writeln!(stdout, "Available commands:")?;
             for cmd_name in registry.list_commands() {
                 if let Some(handler) = registry.get(cmd_name) {
-                    writeln!(output, "  {}", handler.help())?;
+                    writeln!(stdout, "  {}", handler.help())?;
                 }
             }
         }

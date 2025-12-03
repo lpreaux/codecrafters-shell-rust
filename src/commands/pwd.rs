@@ -13,9 +13,10 @@ impl CommandHandler for PwdHandler {
     fn execute(&self,
                _args: &[String],
                _registry: &CommandRegistry,
-               output: &mut dyn Write,
+               stdout: &mut dyn Write,
+               _stderr: &mut dyn Write,
     ) -> Result<bool> {
-        writeln!(output, "{}", std::env::current_dir()?.display())?;
+        writeln!(stdout, "{}", std::env::current_dir()?.display())?;
         Ok(true)
     }
 

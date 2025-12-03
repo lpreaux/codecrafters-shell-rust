@@ -40,21 +40,21 @@ impl Parser {
             iter.next();
         }
 
-        // Parse arguments (grouping consecutive non-whitespace tokens)
         let mut args: Vec<String> = Vec::new();
         let mut current_arg = String::new();
         let mut redirections: Vec<(String, String)> = Vec::new();
 
-        while let Some(token) = iter.next() {
+        while let Some(token) = iter.peek() {
             match token {
-                Token::Operator('>') => {
+                Token::RedirectOperator('>', ref output_type) => {
                     // Save current argument if any
                     if !current_arg.is_empty() {
                         args.push(current_arg.clone());
                         current_arg.clear();
                     }
 
-                    iter.next(); // consume '>'
+                    let output_type = output_type.clone();
+                    iter.next(); // consume the operator
 
                     // Skip whitespace after '>'
                     while matches!(iter.peek(), Some(Token::Whitespace)) {
@@ -64,10 +64,10 @@ impl Parser {
                     // Get filename
                     match iter.next() {
                         Some(Token::Word(filename)) => {
-                            redirections.push(("stdout".to_string(), filename));
+                            redirections.push((output_type, filename));
                         }
                         Some(Token::QuotedString(filename, _)) => {
-                            redirections.push(("stdout".to_string(), filename));
+                            redirections.push((output_type, filename));
                         }
                         _ => bail!("Expected filename after '>'"),
                     }
@@ -78,31 +78,30 @@ impl Parser {
                     }
                 }
                 Token::Whitespace => {
-                    // Whitespace separates arguments
                     if !current_arg.is_empty() {
                         args.push(current_arg.clone());
                         current_arg.clear();
                     }
-                    // Skip consecutive whitespaces
+                    iter.next();
+
                     while matches!(iter.peek(), Some(Token::Whitespace)) {
                         iter.next();
                     }
                 }
                 Token::Word(word) => {
-                    current_arg.push_str(&word)
+                    current_arg.push_str(word);
+                    iter.next();
                 }
-                Token::QuotedString(content, '\'') => {
-                    current_arg.push_str(&content);
+                Token::QuotedString(content, _) => {
+                    current_arg.push_str(content);
+                    iter.next();
                 }
-                Token::QuotedString(content, '"') => {
-                    current_arg.push_str(&content);
-                },
-                _ => bail!("Unexpected token"),
+                _ => {
+                    iter.next();
+                }
             }
-
         }
 
-        // Don't forget the last argument if any
         if !current_arg.is_empty() {
             args.push(current_arg);
         }
@@ -110,7 +109,7 @@ impl Parser {
         Ok(ParsedCommand {
             name,
             args,
-            redirections
+            redirections,
         })
     }
 }

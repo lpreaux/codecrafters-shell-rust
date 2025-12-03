@@ -14,10 +14,8 @@ enum LexerState {
 
 impl Lexer {
     pub fn lex(input: &str) -> Result<Vec<Token>> {
-        // Estimation : en moyenne ~25% des caractères deviennent des tokens
         let mut tokens = Vec::with_capacity(input.len() / 4);
         let mut state = LexerState::Default;
-        // Capacité initiale raisonnable pour un mot/argument moyen
         let mut curr = String::with_capacity(32);
 
         for ch in input.chars() {
@@ -32,11 +30,9 @@ impl Lexer {
                 (LexerState::EscapedInDoubleQuote, ch) => {
                     match ch {
                         '"' | '\\' => {
-                            // Caractères spéciaux : échappés
                             curr.push(ch);
                         }
                         _ => {
-                            // Autres caractères : \ reste littéral
                             curr.push('\\');
                             curr.push(ch);
                         }
@@ -55,7 +51,20 @@ impl Lexer {
                 (LexerState::Default, '"') => LexerState::DoubleQuoted,
                 (LexerState::Default, '\n') => LexerState::Default,
                 (LexerState::Default, '>') => {
-                    tokens.push(Token::Operator('>'));
+                    // Déterminer le descripteur de fichier
+                    let fd = if curr.is_empty() || curr == "1" {
+                        "stdout"
+                    } else if curr == "2" {
+                        "stderr"
+                    } else {
+                        // Si curr n'est ni vide, ni "1", ni "2",
+                        // c'est un mot normal suivi de >
+                        Self::push_word_if_not_empty(&mut tokens, &mut curr);
+                        "stdout"
+                    };
+
+                    curr.clear();
+                    tokens.push(Token::RedirectOperator('>', fd.to_string()));
                     LexerState::Default
                 }
                 (LexerState::Default, ch) => {
