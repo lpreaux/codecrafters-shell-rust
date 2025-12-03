@@ -1,6 +1,7 @@
 use anyhow::{Result, Context, bail};
 use crate::parser::lexer::Lexer;
 use crate::parser::Token;
+use crate::parser::token::RedirectMode;
 
 pub struct Parser;
 
@@ -8,7 +9,7 @@ pub struct Parser;
 pub struct ParsedCommand {
     pub name: String,
     pub args: Vec<String>,
-    pub redirections: Vec<(String, String)>,
+    pub redirections: Vec<(String, String, RedirectMode)>, // fd, filename, mode
 }
 
 impl Parser {
@@ -42,37 +43,34 @@ impl Parser {
 
         let mut args: Vec<String> = Vec::new();
         let mut current_arg = String::new();
-        let mut redirections: Vec<(String, String)> = Vec::new();
+        let mut redirections: Vec<(String, String, RedirectMode)> = Vec::new();
 
         while let Some(token) = iter.peek() {
             match token {
-                Token::RedirectOperator('>', ref output_type) => {
-                    // Save current argument if any
+                Token::Redirect { mode, fd } => {
                     if !current_arg.is_empty() {
                         args.push(current_arg.clone());
                         current_arg.clear();
                     }
 
-                    let output_type = output_type.clone();
-                    iter.next(); // consume the operator
+                    let redirect_mode = mode.clone();
+                    let fd_type = fd.clone();
+                    iter.next();
 
-                    // Skip whitespace after '>'
                     while matches!(iter.peek(), Some(Token::Whitespace)) {
                         iter.next();
                     }
 
-                    // Get filename
                     match iter.next() {
                         Some(Token::Word(filename)) => {
-                            redirections.push((output_type, filename));
+                            redirections.push((fd_type, filename, redirect_mode));
                         }
                         Some(Token::QuotedString(filename, _)) => {
-                            redirections.push((output_type, filename));
+                            redirections.push((fd_type, filename, redirect_mode));
                         }
-                        _ => bail!("Expected filename after '>'"),
+                        _ => bail!("Expected filename after redirect operator"),
                     }
 
-                    // Skip whitespace after filename
                     while matches!(iter.peek(), Some(Token::Whitespace)) {
                         iter.next();
                     }

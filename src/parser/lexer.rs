@@ -1,5 +1,5 @@
 use anyhow::{Result, bail};
-use crate::parser::token::Token;
+use crate::parser::token::{RedirectMode, Token};
 
 pub struct Lexer;
 
@@ -18,7 +18,9 @@ impl Lexer {
         let mut state = LexerState::Default;
         let mut curr = String::with_capacity(32);
 
-        for ch in input.chars() {
+        let mut chars = input.chars().peekable();
+
+        while let Some(ch) = chars.next() {
             state = match (state, ch) {
                 // État Escaped (hors quotes)
                 (LexerState::Escaped, ch) => {
@@ -40,16 +42,26 @@ impl Lexer {
                     LexerState::DoubleQuoted
                 }
 
-                // Default
+                // Default - Whitespace
                 (LexerState::Default, ' ') => {
                     Self::push_word_if_not_empty(&mut tokens, &mut curr);
                     tokens.push(Token::Whitespace);
                     LexerState::Default
                 }
+
+                // Default - Backslash
                 (LexerState::Default, '\\') => LexerState::Escaped,
+
+                // Default - Single Quote
                 (LexerState::Default, '\'') => LexerState::SingleQuoted,
+
+                // Default - Double Quote
                 (LexerState::Default, '"') => LexerState::DoubleQuoted,
+
+                // Default - Newline
                 (LexerState::Default, '\n') => LexerState::Default,
+
+                // Default - Redirect Operator
                 (LexerState::Default, '>') => {
                     // Déterminer le descripteur de fichier
                     let fd = if curr.is_empty() || curr == "1" {
@@ -64,34 +76,55 @@ impl Lexer {
                     };
 
                     curr.clear();
-                    tokens.push(Token::RedirectOperator('>', fd.to_string()));
+
+                    // Vérifier si c'est >> (append)
+                    let mode = if chars.peek() == Some(&'>') {
+                        chars.next(); // consommer le second >
+                        RedirectMode::Append
+                    } else {
+                        RedirectMode::Overwrite
+                    };
+
+                    tokens.push(Token::Redirect {
+                        mode,
+                        fd: fd.to_string(),
+                    });
+
                     LexerState::Default
                 }
+
+                // Default - Autre caractère
                 (LexerState::Default, ch) => {
                     curr.push(ch);
                     LexerState::Default
                 }
 
-                // Single Quoted
+                // Single Quoted - Fin de quote
                 (LexerState::SingleQuoted, '\'') => {
                     tokens.push(Token::QuotedString(curr.clone(), '\''));
                     curr.clear();
                     LexerState::Default
                 }
+
+                // Single Quoted - Autre caractère
                 (LexerState::SingleQuoted, ch) => {
                     curr.push(ch);
                     LexerState::SingleQuoted
                 }
 
-                // Double Quoted
+                // Double Quoted - Fin de quote
                 (LexerState::DoubleQuoted, '"') => {
                     tokens.push(Token::QuotedString(curr.clone(), '"'));
                     curr.clear();
                     LexerState::Default
                 }
+
+                // Double Quoted - Backslash
                 (LexerState::DoubleQuoted, '\\') => {
                     LexerState::EscapedInDoubleQuote
                 }
+
+                // Double Quoted - Autre caractère
                 (LexerState::DoubleQuoted, ch) => {
                     curr.push(ch);
                     LexerState::DoubleQuoted

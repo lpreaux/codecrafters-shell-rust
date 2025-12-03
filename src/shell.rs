@@ -1,6 +1,6 @@
 use crate::commands::CommandRegistry;
-use crate::parser::Parser;
-use std::fs::File;
+use crate::parser::{Parser, RedirectMode};
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::Write;
 use std::process::{Command, Stdio};
@@ -26,9 +26,15 @@ impl Shell {
         };
 
         // Déterminer la destination de sortie
-        let stdout_redirect = command.redirections.iter().find(|(fd, _)| fd == "stdout");
+        let stdout_redirect = command
+            .redirections
+            .iter()
+            .find(|(fd, _, _)| fd == "stdout");
 
-        let stderr_redirect = command.redirections.iter().find(|(fd, _)| fd == "stderr");
+        let stderr_redirect = command
+            .redirections
+            .iter()
+            .find(|(fd, _, _)| fd == "stderr");
 
         // Commandes internes
         if let Some(cmd) = self.command_registry.get(&command.name) {
@@ -63,25 +69,39 @@ impl Shell {
         &self,
         cmd: &Box<dyn crate::command::CommandHandler>,
         args: &[String],
-        stdout_redirect: Option<&(String, String)>,
-        stderr_redirect: Option<&(String, String)>,
+        stdout_redirect: Option<&(String, String, RedirectMode)>,
+        stderr_redirect: Option<&(String, String, RedirectMode)>,
     ) -> anyhow::Result<bool> {
         let mut stdout: Box<dyn Write> = match stdout_redirect {
-            Some((_, filename)) => {
+            Some((_, filename, mode)) => {
                 if let Some(parent) = std::path::Path::new(filename).parent() {
                     std::fs::create_dir_all(parent)?;
                 }
-                Box::new(File::create(filename)?)
+                Box::new(
+                    OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .append(matches!(mode, RedirectMode::Append))
+                        .truncate(matches!(mode, RedirectMode::Overwrite))
+                        .open(filename)?
+                )
             }
             None => Box::new(io::stdout()),
         };
 
         let mut stderr: Box<dyn Write> = match stderr_redirect {
-            Some((_, filename)) => {
+            Some((_, filename, mode)) => {
                 if let Some(parent) = std::path::Path::new(filename).parent() {
                     std::fs::create_dir_all(parent)?;
                 }
-                Box::new(File::create(filename)?)
+                Box::new(
+                    OpenOptions::new()
+                        .write(true)
+                        .create(true)
+                        .append(matches!(mode, RedirectMode::Append))
+                        .truncate(matches!(mode, RedirectMode::Overwrite))
+                        .open(filename)?
+                )
             }
             None => Box::new(io::stderr()),
         };
@@ -93,24 +113,38 @@ impl Shell {
         &self,
         name: &str,
         args: &[String],
-        stdout_redirect: Option<&(String, String)>,
-        stderr_redirect: Option<&(String, String)>,
+        stdout_redirect: Option<&(String, String, RedirectMode)>,
+        stderr_redirect: Option<&(String, String, RedirectMode)>,
     ) -> anyhow::Result<bool> {
         let mut cmd = Command::new(name);
         cmd.args(args);
 
-        if let Some((_, filename)) = stdout_redirect {
+        if let Some((_, filename, mode)) = stdout_redirect {
             if let Some(parent) = std::path::Path::new(filename).parent() {
                 std::fs::create_dir_all(parent)?;
             }
-            cmd.stdout(File::create(filename)?);
+            cmd.stdout(
+                OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .append(matches!(mode, RedirectMode::Append))
+                    .truncate(matches!(mode, RedirectMode::Overwrite))
+                    .open(filename)?
+            );
         }
 
-        if let Some((_, filename)) = stderr_redirect {
+        if let Some((_, filename, mode)) = stderr_redirect {
             if let Some(parent) = std::path::Path::new(filename).parent() {
                 std::fs::create_dir_all(parent)?;
             }
-            cmd.stderr(File::create(filename)?);
+            cmd.stderr(
+                OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .append(matches!(mode, RedirectMode::Append))
+                    .truncate(matches!(mode, RedirectMode::Overwrite))
+                    .open(filename)?
+            );
         }
 
         cmd.status()?;
