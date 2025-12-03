@@ -40,12 +40,12 @@ impl CommandRegistry {
         self.handlers.keys().map(|x| x.as_str()).collect()
     }
 
-    pub fn find_command_starting_with(&self, prefix: &str) -> Vec<&str> {
+    pub fn find_command_starting_with(&self, prefix: &str) -> Vec<String> {
         self.handlers
             .values()
             .into_iter()
             .filter(|x| x.name().starts_with(prefix))
-            .map(|x| x.name())
+            .map(|x| x.name().to_string())
             .collect()
     }
 }

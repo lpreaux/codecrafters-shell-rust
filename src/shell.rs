@@ -6,6 +6,7 @@ use crate::commands::CommandRegistry;
 use crate::parser::{Parser, RedirectMode};
 use std::fs::OpenOptions;
 use std::process::Command;
+use crate::utils::path::find_executables_with_prefix;
 
 pub struct Shell {
     command_registry: CommandRegistry,
@@ -242,7 +243,11 @@ impl Shell {
         // On complete seulement si c'est le premier mot (la commande)
         if parts.len() <= 1 {
             let prefix = parts.get(0).unwrap_or(&"");
-            let matches = self.command_registry.find_command_starting_with(prefix);
+
+            let mut matches = self.command_registry.find_command_starting_with(prefix);
+            matches.extend(find_executables_with_prefix(prefix));
+            matches.sort();
+            matches.dedup();
 
             match matches.len() {
                 0 => {
@@ -252,7 +257,6 @@ impl Shell {
                 }
                 1 => {
                     // Une seule correspondance : compléter
-                    let completion = matches[0];
 
                     // Effacer l'input actuel visuellement
                     for _ in 0..input.len() {
@@ -260,7 +264,7 @@ impl Shell {
                     }
 
                     // Remplacer par la complétion + espace
-                    *input = format!("{} ", completion);
+                    *input = format!("{} ", matches[0]);
                     print!("{}", input);
                     io::stdout().flush().unwrap();
                 }
