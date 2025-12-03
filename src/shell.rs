@@ -11,6 +11,7 @@ use crate::utils::path::find_executables_with_prefix;
 pub struct Shell {
     command_registry: CommandRegistry,
     original_termios: Option<Termios>,
+    last_autocomplete_input: Option<String>,
 }
 
 impl Shell {
@@ -20,6 +21,7 @@ impl Shell {
         Self {
             command_registry,
             original_termios: None,
+            last_autocomplete_input: None,
         }
     }
 
@@ -41,6 +43,7 @@ impl Shell {
                     b'\n' | b'\r' => {
                         // Enter : fin de saisie
                         println!();
+                        self.last_autocomplete_input = None;
                         break;
                     }
                     b'\t' => {
@@ -54,6 +57,7 @@ impl Shell {
                             print!("\x08 \x08"); // Efface visuellement
                             io::stdout().flush().unwrap();
                         }
+                        self.last_autocomplete_input = None;
                     }
                     c if c >= 32 && c < 127 => {
                         // Caractère imprimable
@@ -61,6 +65,7 @@ impl Shell {
                         input.push(ch);
                         print!("{}", ch);
                         io::stdout().flush().unwrap();
+                        self.last_autocomplete_input = None;
                     }
                     _ => {
                         // Ignorer les autres caractères (séquences escape, etc.)
@@ -237,7 +242,7 @@ impl Shell {
         Ok(())
     }
 
-    fn handle_autocomplete(&self, input: &mut String) {
+    fn handle_autocomplete(&mut self, input: &mut String) {
         let parts: Vec<&str> = input.split_whitespace().collect();
 
         // On complete seulement si c'est le premier mot (la commande)
@@ -270,12 +275,25 @@ impl Shell {
                 }
                 _ => {
                     // Plusieurs correspondances : afficher les options
-                    println!();
-                    for cmd in &matches {
-                        println!("{}", cmd);
+
+                    // Vérifier si c'est le deuxième TAB consécutif
+                    if self.last_autocomplete_input.as_ref() ==
+                        Some(&input.clone()) {
+                        // Deuxième TAB : afficher les options
+                        println!();
+                        for cmd in &matches {
+                            print!("{}  ", cmd);
+                        }
+                        println!();
+                        print!("$ {}", input);
+                        io::stdout().flush().unwrap();
+                        self.last_autocomplete_input = None;
+                    } else {
+                        // Premier TAB : sonner la cloche
+                        print!("\x07");
+                        io::stdout().flush().unwrap();
+                        self.last_autocomplete_input = Some(input.clone());
                     }
-                    print!("$ {}", input);
-                    io::stdout().flush().unwrap();
                 }
             }
         }
