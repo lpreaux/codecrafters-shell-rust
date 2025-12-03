@@ -1,9 +1,9 @@
+mod cd;
 mod echo;
 mod exit;
 mod help;
-mod type_cmd;
 mod pwd;
-mod cd;
+mod type_cmd;
 
 use crate::command::CommandHandler;
 use std::collections::HashMap;
@@ -38,5 +38,14 @@ impl CommandRegistry {
 
     pub fn list_commands(&self) -> Vec<&str> {
         self.handlers.keys().map(|x| x.as_str()).collect()
+    }
+
+    pub fn find_command_starting_with(&self, prefix: &str) -> Vec<&str> {
+        self.handlers
+            .values()
+            .into_iter()
+            .filter(|x| x.name().starts_with(prefix))
+            .map(|x| x.name())
+            .collect()
     }
 }

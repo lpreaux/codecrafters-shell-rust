@@ -1,19 +1,80 @@
+use std::io::{self, Read, Write};
+use std::os::unix::io::AsRawFd;
+use termios::{tcgetattr, tcsetattr, Termios, ECHO, ICANON, TCSANOW};
+
 use crate::commands::CommandRegistry;
 use crate::parser::{Parser, RedirectMode};
-use std::fs::{File, OpenOptions};
-use std::io;
-use std::io::Write;
-use std::process::{Command, Stdio};
+use std::fs::OpenOptions;
+use std::process::Command;
 
 pub struct Shell {
     command_registry: CommandRegistry,
+    original_termios: Option<Termios>,
 }
 
 impl Shell {
     pub fn new() -> Self {
         let command_registry = CommandRegistry::new();
 
-        Self { command_registry }
+        Self {
+            command_registry,
+            original_termios: None,
+        }
+    }
+
+    pub fn run(&mut self) {
+        self.enable_raw_mode().unwrap();
+
+        loop {
+            let mut input = String::new();
+
+            print!("$ ");
+            io::stdout().flush().unwrap();
+
+            // Boucle de lecture caractère par caractère
+            loop {
+                let mut buffer = [0u8; 1];
+                io::stdin().read_exact(&mut buffer).unwrap();
+
+                match buffer[0] {
+                    b'\n' | b'\r' => {
+                        // Enter : fin de saisie
+                        println!();
+                        break;
+                    }
+                    b'\t' => {
+                        // Tab : autocompletion
+                        self.handle_autocomplete(&mut input);
+                    }
+                    127 | 8 => {
+                        // Backspace (127 sur Linux, 8 sur certains systèmes)
+                        if !input.is_empty() {
+                            input.pop();
+                            print!("\x08 \x08"); // Efface visuellement
+                            io::stdout().flush().unwrap();
+                        }
+                    }
+                    c if c >= 32 && c < 127 => {
+                        // Caractère imprimable
+                        let ch = c as char;
+                        input.push(ch);
+                        print!("{}", ch);
+                        io::stdout().flush().unwrap();
+                    }
+                    _ => {
+                        // Ignorer les autres caractères (séquences escape, etc.)
+                    }
+                }
+            }
+
+            if !input.trim().is_empty() {
+                if !self.execute_command(&input) {
+                    break;
+                }
+            }
+        }
+
+        self.disable_raw_mode().unwrap();
     }
 
     pub fn execute_command(&self, input: &str) -> bool {
@@ -83,7 +144,7 @@ impl Shell {
                         .create(true)
                         .append(matches!(mode, RedirectMode::Append))
                         .truncate(matches!(mode, RedirectMode::Overwrite))
-                        .open(filename)?
+                        .open(filename)?,
                 )
             }
             None => Box::new(io::stdout()),
@@ -100,7 +161,7 @@ impl Shell {
                         .create(true)
                         .append(matches!(mode, RedirectMode::Append))
                         .truncate(matches!(mode, RedirectMode::Overwrite))
-                        .open(filename)?
+                        .open(filename)?,
                 )
             }
             None => Box::new(io::stderr()),
@@ -129,7 +190,7 @@ impl Shell {
                     .create(true)
                     .append(matches!(mode, RedirectMode::Append))
                     .truncate(matches!(mode, RedirectMode::Overwrite))
-                    .open(filename)?
+                    .open(filename)?,
             );
         }
 
@@ -143,7 +204,7 @@ impl Shell {
                     .create(true)
                     .append(matches!(mode, RedirectMode::Append))
                     .truncate(matches!(mode, RedirectMode::Overwrite))
-                    .open(filename)?
+                    .open(filename)?,
             );
         }
 
@@ -151,26 +212,72 @@ impl Shell {
         Ok(true)
     }
 
-    pub fn run(&self) {
-        loop {
-            let mut input = String::new();
+    fn enable_raw_mode(&mut self) -> io::Result<()> {
+        let fd = io::stdin().as_raw_fd();
 
-            // Show current directory in prompt
-            /* let current_dir = std::env::current_dir()
-            .ok()
-            .and_then(|path| path.file_name()?.to_str().map(String::from))
-            .unwrap_or_else(|| "shell".to_string());
+        // Récupérer et sauvegarder les paramètres originaux
+        let original = Termios::from_fd(fd)?;
+        self.original_termios = Some(original);
 
-            print!("{}$ ", current_dir);*/
+        // Créer une copie modifiée pour le mode raw
+        let mut raw = original;
+        raw.c_lflag &= !(ICANON | ECHO);
 
-            print!("$ ");
+        // Appliquer les nouveaux paramètres
+        tcsetattr(fd, TCSANOW, &raw)?;
+        Ok(())
+    }
 
-            std::io::stdout().flush().unwrap();
-            std::io::stdin().read_line(&mut input).unwrap();
+    fn disable_raw_mode(&self) -> io::Result<()> {
+        if let Some(original) = &self.original_termios {
+            let fd = io::stdin().as_raw_fd();
+            tcsetattr(fd, TCSANOW, original)?;
+        }
+        Ok(())
+    }
 
-            if !self.execute_command(&input) {
-                break;
+    fn handle_autocomplete(&self, input: &mut String) {
+        let parts: Vec<&str> = input.split_whitespace().collect();
+
+        // On complete seulement si c'est le premier mot (la commande)
+        if parts.len() <= 1 {
+            let prefix = parts.get(0).unwrap_or(&"");
+            let matches = self.command_registry.find_command_starting_with(prefix);
+
+            match matches.len() {
+                0 => {
+                    // Aucune correspondance
+                }
+                1 => {
+                    // Une seule correspondance : compléter
+                    let completion = matches[0];
+
+                    // Effacer l'input actuel visuellement
+                    for _ in 0..input.len() {
+                        print!("\x08 \x08");
+                    }
+
+                    // Remplacer par la complétion
+                    *input = completion.to_string();
+                    print!("{} ", input);
+                    io::stdout().flush().unwrap();
+                }
+                _ => {
+                    // Plusieurs correspondances : afficher les options
+                    println!();
+                    for cmd in &matches {
+                        println!("{}", cmd);
+                    }
+                    print!("$ {}", input);
+                    io::stdout().flush().unwrap();
+                }
             }
         }
+    }
+}
+
+impl Drop for Shell {
+    fn drop(&mut self) {
+        let _ = self.disable_raw_mode();
     }
 }
