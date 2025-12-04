@@ -1,8 +1,7 @@
-use std::io::Write;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
-use anyhow::{anyhow, Result};
 use crate::execution::RedirectionManager;
+use anyhow::Result;
 
 pub struct TypeHandler;
 

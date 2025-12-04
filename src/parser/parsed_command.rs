@@ -1,4 +1,4 @@
-use crate::parser::redirection::{FileDescriptor, Redirection};
+use crate::parser::redirection::Redirection;
 
 #[derive(Debug)]
 pub struct ParsedCommand {

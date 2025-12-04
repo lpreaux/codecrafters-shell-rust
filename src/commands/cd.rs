@@ -1,8 +1,7 @@
-use std::io::Write;
 use std::path::PathBuf;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use crate::execution::RedirectionManager;
 
 pub struct CdHandler;

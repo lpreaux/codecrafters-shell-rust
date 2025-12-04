@@ -1,4 +1,3 @@
-use std::io::Write;
 use crate::commands::CommandRegistry;
 use anyhow::Result;
 use crate::execution::RedirectionManager;

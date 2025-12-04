@@ -3,11 +3,11 @@ use std::os::unix::io::AsRawFd;
 use termios::{tcsetattr, Termios, ECHO, ICANON, TCSANOW};
 
 use crate::commands::CommandRegistry;
-use crate::parser::{FileDescriptor, Parser, RedirectMode, Redirection};
+use crate::execution::RedirectionManager;
+use crate::parser::{Parser, Redirection};
 use crate::utils::path::find_executables_with_prefix;
 use std::fs::OpenOptions;
 use std::process::Command;
-use crate::execution::RedirectionManager;
 
 pub struct Shell {
     command_registry: CommandRegistry,
