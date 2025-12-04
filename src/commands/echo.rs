@@ -2,6 +2,7 @@ use std::io::Write;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
 use anyhow::Result;
+use crate::execution::RedirectionManager;
 
 pub struct EchoHandler;
 
@@ -13,10 +14,9 @@ impl CommandHandler for EchoHandler {
     fn execute(&self,
                args: &[String],
                _registry: &CommandRegistry,
-               stdout: &mut dyn Write,
-               _stderr: &mut dyn Write,
+               redirections: &mut RedirectionManager,
     ) -> Result<bool> {
-        writeln!(stdout, "{}", args.join(" "))?;
+        writeln!(redirections.stdout(), "{}", args.join(" "))?;
         Ok(true)
     }
 

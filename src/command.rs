@@ -1,6 +1,7 @@
 use std::io::Write;
 use crate::commands::CommandRegistry;
 use anyhow::Result;
+use crate::execution::RedirectionManager;
 
 pub trait CommandHandler {
     fn name(&self) -> &'static str;
@@ -8,8 +9,7 @@ pub trait CommandHandler {
         &self,
         args: &[String],
         registry: &CommandRegistry,
-        stdout: &mut dyn Write,
-        stderr: &mut dyn Write,
+        redirections: &mut RedirectionManager,
     ) -> Result<bool>;
     fn help(&self) -> &'static str;
 }

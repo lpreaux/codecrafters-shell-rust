@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
 use anyhow::{anyhow, Result};
+use crate::execution::RedirectionManager;
 
 pub struct CdHandler;
 
@@ -14,15 +15,14 @@ impl CommandHandler for CdHandler {
     fn execute(&self,
                args: &[String],
                _registry: &CommandRegistry,
-               _stdout: &mut dyn Write,
-               stderr: &mut dyn Write,
+               redirections: &mut RedirectionManager,
     ) -> Result<bool> {
         let target_dir = if args.is_empty() {
             std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
         } else if args.len() == 1 {
             args[0].to_string()
         } else {
-            writeln!(stderr, "cd: too many arguments")?;
+            writeln!(redirections.stderr(), "cd: too many arguments")?;
             return Ok(true);
         };
 
@@ -39,12 +39,12 @@ impl CommandHandler for CdHandler {
         };
 
         if !new_path.exists() {
-            writeln!(stderr, "cd: {}: No such file or directory", target_dir)?;
+            writeln!(redirections.stderr(), "cd: {}: No such file or directory", target_dir)?;
             return Ok(true);
         }
 
         if !new_path.is_dir() {
-            writeln!(stderr, "cd: {}: Not a directory", target_dir)?;
+            writeln!(redirections.stderr(), "cd: {}: Not a directory", target_dir)?;
             return Ok(true);
         }
 

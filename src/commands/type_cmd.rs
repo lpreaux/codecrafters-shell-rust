@@ -2,6 +2,7 @@ use std::io::Write;
 use crate::command::CommandHandler;
 use crate::commands::CommandRegistry;
 use anyhow::{anyhow, Result};
+use crate::execution::RedirectionManager;
 
 pub struct TypeHandler;
 
@@ -13,11 +14,10 @@ impl CommandHandler for TypeHandler {
     fn execute(&self,
                args: &[String],
                registry: &CommandRegistry,
-               stdout: &mut dyn Write,
-               stderr: &mut dyn Write,
+               redirections: &mut RedirectionManager,
     ) -> Result<bool> {
         if args.len() != 1 {
-            writeln!(stderr, "type takes exactly one argument")?;
+            writeln!(redirections.stderr(), "type takes exactly one argument")?;
             return Ok(true);
         }
 
@@ -25,14 +25,14 @@ impl CommandHandler for TypeHandler {
         let builtin_commands: Vec<&str> = registry.list_commands();
 
         if builtin_commands.contains(&cmd_name.as_str()) {
-            writeln!(stdout, "{} is a shell builtin", cmd_name)?;
+            writeln!(redirections.stdout(), "{} is a shell builtin", cmd_name)?;
             return Ok(true);
         }
 
         if let Some(path) = crate::utils::path::find_executable_in_path(cmd_name) {
-            writeln!(stdout, "{} is {}", cmd_name, path.to_str().unwrap())?;
+            writeln!(redirections.stdout(), "{} is {}", cmd_name, path.to_str().unwrap())?;
         } else {
-            writeln!(stderr, "{}: not found", cmd_name)?;
+            writeln!(redirections.stderr(), "{}: not found", cmd_name)?;
         }
 
         Ok(true)

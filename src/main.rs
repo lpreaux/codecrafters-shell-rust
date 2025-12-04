@@ -3,6 +3,7 @@ mod commands;
 mod shell;
 mod utils;
 mod parser;
+mod execution;
 
 use shell::Shell;
 

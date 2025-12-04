@@ -7,6 +7,7 @@ use crate::parser::{FileDescriptor, Parser, RedirectMode, Redirection};
 use crate::utils::path::find_executables_with_prefix;
 use std::fs::OpenOptions;
 use std::process::Command;
+use crate::execution::RedirectionManager;
 
 pub struct Shell {
     command_registry: CommandRegistry,
@@ -132,41 +133,12 @@ impl Shell {
         stdout_redirect: Option<&Redirection>,
         stderr_redirect: Option<&Redirection>,
     ) -> anyhow::Result<bool> {
-        let mut stdout: Box<dyn Write> = match stdout_redirect {
-            Some(redir) => {
-                if let Some(parent) = std::path::Path::new(&redir.target).parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                Box::new(
-                    OpenOptions::new()
-                        .write(true)
-                        .create(true)
-                        .append(redir.is_append())
-                        .truncate(redir.is_overwrite())
-                        .open(&redir.target)?,
-                )
-            }
-            None => Box::new(io::stdout()),
-        };
+        let mut redirections = RedirectionManager::with_redirections(
+            stdout_redirect,
+            stderr_redirect,
+        )?;
 
-        let mut stderr: Box<dyn Write> = match stderr_redirect {
-            Some(redir) => {
-                if let Some(parent) = std::path::Path::new(&redir.target).parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                Box::new(
-                    OpenOptions::new()
-                        .write(true)
-                        .create(true)
-                        .append(redir.is_append())
-                        .truncate(redir.is_overwrite())
-                        .open(&redir.target)?,
-                )
-            }
-            None => Box::new(io::stderr()),
-        };
-
-        cmd.execute(args, &self.command_registry, &mut *stdout, &mut *stderr)
+        cmd.execute(args, &self.command_registry, &mut redirections)
     }
 
     fn execute_external(
