@@ -4,9 +4,9 @@ use termios::{tcgetattr, tcsetattr, Termios, ECHO, ICANON, TCSANOW};
 
 use crate::commands::CommandRegistry;
 use crate::parser::{Parser, RedirectMode};
+use crate::utils::path::find_executables_with_prefix;
 use std::fs::OpenOptions;
 use std::process::Command;
-use crate::utils::path::find_executables_with_prefix;
 
 pub struct Shell {
     command_registry: CommandRegistry,
@@ -245,58 +245,111 @@ impl Shell {
     fn handle_autocomplete(&mut self, input: &mut String) {
         let parts: Vec<&str> = input.split_whitespace().collect();
 
-        // On complete seulement si c'est le premier mot (la commande)
-        if parts.len() <= 1 {
-            let prefix = parts.get(0).unwrap_or(&"");
+        // On complète seulement si c'est le premier mot (la commande)
+        if parts.len() > 1 {
+            return;
+        }
 
-            let mut matches = self.command_registry.find_command_starting_with(prefix);
-            matches.extend(find_executables_with_prefix(prefix));
-            matches.sort();
-            matches.dedup();
+        let prefix = parts.get(0).unwrap_or(&"");
 
-            match matches.len() {
-                0 => {
-                    // Aucune correspondance
-                    print!("\x07");
-                    io::stdout().flush().unwrap();
-                }
-                1 => {
-                    // Une seule correspondance : compléter
+        let mut matches =
+            self.command_registry.find_command_starting_with(prefix);
+        matches.extend(find_executables_with_prefix(prefix));
+        matches.sort();
+        matches.dedup();
 
-                    // Effacer l'input actuel visuellement
-                    for _ in 0..input.len() {
-                        print!("\x08 \x08");
-                    }
-
-                    // Remplacer par la complétion + espace
-                    *input = format!("{} ", matches[0]);
-                    print!("{}", input);
-                    io::stdout().flush().unwrap();
-                }
-                _ => {
-                    // Plusieurs correspondances : afficher les options
-
-                    // Vérifier si c'est le deuxième TAB consécutif
-                    if self.last_autocomplete_input.as_ref() ==
-                        Some(&input.clone()) {
-                        // Deuxième TAB : afficher les options
-                        println!();
-                        for cmd in &matches {
-                            print!("{}  ", cmd);
-                        }
-                        println!();
-                        print!("$ {}", input);
-                        io::stdout().flush().unwrap();
-                        self.last_autocomplete_input = None;
-                    } else {
-                        // Premier TAB : sonner la cloche
-                        print!("\x07");
-                        io::stdout().flush().unwrap();
-                        self.last_autocomplete_input = Some(input.clone());
-                    }
-                }
+        match matches.len() {
+            0 => {
+                // Aucune correspondance
+                self.ring_bell();
+                self.last_autocomplete_input = None;
+            }
+            1 => {
+                // Une seule correspondance : compléter avec un espace
+                self.complete_input(input, &format!("{} ", matches[0]));
+                self.last_autocomplete_input = None;
+            }
+            _ => {
+                // Plusieurs correspondances
+                self.handle_multiple_matches(input, &matches);
             }
         }
+    }
+
+    fn handle_multiple_matches(&mut self, input: &mut String, matches: &[String]) {
+        let lcp = Self::find_longest_common_prefix(matches);
+
+        // Si le LCP est plus long que l'input actuel, le compléter
+        if lcp.len() > input.len() {
+            self.complete_input(input, &lcp);
+        }
+
+        // Vérifier si c'est le deuxième TAB consécutif
+        if self.last_autocomplete_input.as_ref() == Some(input) {
+            // Deuxième TAB : afficher toutes les options
+            self.display_matches(matches, input);
+            self.last_autocomplete_input = None;
+        } else {
+            // Premier TAB : sonner la cloche
+            self.ring_bell();
+            self.last_autocomplete_input = Some(input.clone());
+        }
+    }
+
+    fn complete_input(&self, input: &mut String, completion: &str) {
+        // Effacer l'input actuel visuellement
+        for _ in 0..input.len() {
+            print!("\x08 \x08");
+        }
+
+        // Remplacer par la complétion
+        *input = completion.to_string();
+        print!("{}", input);
+        io::stdout().flush().unwrap();
+    }
+
+    fn display_matches(&self, matches: &[String], current_input: &str) {
+        println!();
+        for cmd in matches {
+            print!("{}  ", cmd);
+        }
+        println!();
+        print!("$ {}", current_input);
+        io::stdout().flush().unwrap();
+    }
+
+    fn ring_bell(&self) {
+        print!("\x07");
+        io::stdout().flush().unwrap();
+    }
+
+    fn find_longest_common_prefix(strings: &[String]) -> String {
+        if strings.is_empty() {
+            return String::new();
+        }
+
+        if strings.len() == 1 {
+            return strings[0].clone();
+        }
+
+        let first = &strings[0];
+        let mut prefix_len = first.len();
+
+        for s in &strings[1..] {
+            prefix_len = prefix_len.min(s.len());
+            prefix_len = first
+                .chars()
+                .zip(s.chars())
+                .take(prefix_len)
+                .take_while(|(a, b)| a == b)
+                .count();
+
+            if prefix_len == 0 {
+                break;
+            }
+        }
+
+        first.chars().take(prefix_len).collect()
     }
 }
 
