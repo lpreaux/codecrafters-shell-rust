@@ -1,5 +1,5 @@
-use anyhow::{Result, bail};
-use crate::parser::token::{RedirectMode, Token};
+use crate::parser::token::{FileDescriptor, RedirectMode, Token};
+use anyhow::{bail, Result};
 
 pub struct Lexer;
 
@@ -63,33 +63,34 @@ impl Lexer {
 
                 // Default - Redirect Operator
                 (LexerState::Default, '>') => {
-                    // Déterminer le descripteur de fichier
-                    let fd = if curr.is_empty() || curr == "1" {
-                        "stdout"
-                    } else if curr == "2" {
-                        "stderr"
+                    let fd = if curr.is_empty() {
+                        FileDescriptor::Stdout
                     } else {
-                        // Si curr n'est ni vide, ni "1", ni "2",
-                        // c'est un mot normal suivi de >
-                        Self::push_word_if_not_empty(&mut tokens, &mut curr);
-                        "stdout"
+                        match FileDescriptor::from_str(&curr) {
+                            Ok(fd) => {
+                                curr.clear();
+                                fd
+                            }
+                            Err(_) => {
+                                // Si c'est UNIQUEMENT un nombre, c'est un FD invalide
+                                if curr.chars().all(|c| c.is_ascii_digit()) {
+                                    bail!("Bad file descriptor: {}", curr);
+                                }
+                                // Sinon, c'est un mot normal (ex: "hello3")
+                                Self::push_word_if_not_empty(&mut tokens, &mut curr);
+                                FileDescriptor::Stdout
+                            }
+                        }
                     };
 
-                    curr.clear();
-
-                    // Vérifier si c'est >> (append)
                     let mode = if chars.peek() == Some(&'>') {
-                        chars.next(); // consommer le second >
+                        chars.next();
                         RedirectMode::Append
                     } else {
                         RedirectMode::Overwrite
                     };
 
-                    tokens.push(Token::Redirect {
-                        mode,
-                        fd: fd.to_string(),
-                    });
-
+                    tokens.push(Token::Redirect { mode, fd });
                     LexerState::Default
                 }
 
@@ -120,9 +121,7 @@ impl Lexer {
                 }
 
                 // Double Quoted - Backslash
-                (LexerState::DoubleQuoted, '\\') => {
-                    LexerState::EscapedInDoubleQuote
-                }
+                (LexerState::DoubleQuoted, '\\') => LexerState::EscapedInDoubleQuote,
 
                 // Double Quoted - Autre caractère
                 (LexerState::DoubleQuoted, ch) => {

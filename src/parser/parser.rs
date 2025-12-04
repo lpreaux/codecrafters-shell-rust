@@ -1,21 +1,14 @@
-use anyhow::{Result, Context, bail};
+use anyhow::{Result, bail};
 use crate::parser::lexer::Lexer;
+use crate::parser::parsed_command::ParsedCommand;
+use crate::parser::redirection::Redirection;
 use crate::parser::Token;
-use crate::parser::token::RedirectMode;
 
 pub struct Parser;
 
-#[derive(Debug)]
-pub struct ParsedCommand {
-    pub name: String,
-    pub args: Vec<String>,
-    pub redirections: Vec<(String, String, RedirectMode)>, // fd, filename, mode
-}
-
 impl Parser {
     pub fn parse(input: &str) -> Result<ParsedCommand> {
-        let tokens = Lexer::lex(input)
-            .context("Failed to tokenize input")?;
+        let tokens = Lexer::lex(input)?;
 
         Self::parse_tokens(tokens)
     }
@@ -43,7 +36,7 @@ impl Parser {
 
         let mut args: Vec<String> = Vec::new();
         let mut current_arg = String::new();
-        let mut redirections: Vec<(String, String, RedirectMode)> = Vec::new();
+        let mut redirections: Vec<Redirection> = Vec::new();
 
         while let Some(token) = iter.peek() {
             match token {
@@ -54,7 +47,7 @@ impl Parser {
                     }
 
                     let redirect_mode = mode.clone();
-                    let fd_type = fd.clone();
+                    let fd_type = *fd;
                     iter.next();
 
                     while matches!(iter.peek(), Some(Token::Whitespace)) {
@@ -63,10 +56,10 @@ impl Parser {
 
                     match iter.next() {
                         Some(Token::Word(filename)) => {
-                            redirections.push((fd_type, filename, redirect_mode));
+                            redirections.push(Redirection::new(fd_type, filename, redirect_mode));
                         }
                         Some(Token::QuotedString(filename, _)) => {
-                            redirections.push((fd_type, filename, redirect_mode));
+                            redirections.push(Redirection::new(fd_type, filename, redirect_mode));
                         }
                         _ => bail!("Expected filename after redirect operator"),
                     }
