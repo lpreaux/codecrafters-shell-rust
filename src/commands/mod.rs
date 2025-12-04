@@ -9,7 +9,7 @@ use crate::command::CommandHandler;
 use std::collections::HashMap;
 
 pub struct CommandRegistry {
-    handlers: HashMap<String, Box<dyn CommandHandler>>,
+    handlers: HashMap<&'static str, Box<dyn CommandHandler>>,
 }
 
 impl CommandRegistry {
@@ -28,24 +28,23 @@ impl CommandRegistry {
         registry
     }
 
-    pub fn register(&mut self, handler: Box<dyn CommandHandler>) {
-        self.handlers.insert(handler.name().to_string(), handler);
+    fn register(&mut self, handler: Box<dyn CommandHandler>) {
+        self.handlers.insert(handler.name(), handler);
     }
 
     pub fn get(&self, name: &str) -> Option<&Box<dyn CommandHandler>> {
         self.handlers.get(name)
     }
 
-    pub fn list_commands(&self) -> Vec<&str> {
-        self.handlers.keys().map(|x| x.as_str()).collect()
+    pub fn list_commands(&self) -> Vec<&'static str> {
+        self.handlers.keys().copied().collect()
     }
 
-    pub fn find_command_starting_with(&self, prefix: &str) -> Vec<String> {
+    pub fn find_command_starting_with(&self, prefix: &str) -> Vec<&'static str> {
         self.handlers
-            .values()
-            .into_iter()
-            .filter(|x| x.name().starts_with(prefix))
-            .map(|x| x.name().to_string())
+            .keys()
+            .copied()
+            .filter(|&name| name.starts_with(prefix))
             .collect()
     }
 }

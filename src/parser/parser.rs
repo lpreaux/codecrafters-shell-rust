@@ -23,7 +23,7 @@ impl Parser {
 
         // Parse command name
         let name = match iter.next() {
-            Some(Token::Word(name)) => name,
+            Some(Token::Litteral(name)) => name,
             Some(Token::QuotedString(name, _)) => name,
             Some(_) => bail!("First token must be a word or quoted string"),
             None => bail!("No command provided"),
@@ -55,7 +55,7 @@ impl Parser {
                     }
 
                     match iter.next() {
-                        Some(Token::Word(filename)) => {
+                        Some(Token::Litteral(filename)) => {
                             redirections.push(Redirection::new(fd_type, filename, redirect_mode));
                         }
                         Some(Token::QuotedString(filename, _)) => {
@@ -79,7 +79,7 @@ impl Parser {
                         iter.next();
                     }
                 }
-                Token::Word(word) => {
+                Token::Litteral(word) => {
                     current_arg.push_str(word);
                     iter.next();
                 }

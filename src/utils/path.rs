@@ -1,6 +1,9 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
+// Constante pour les bits de permission d'exécution (user, group, other)
+const PERMISSION_EXECUTE_MASK: u32 = 0o111;
+
 pub fn find_executable_in_path(cmd_name: &str) -> Option<PathBuf> {
     if let Ok(path_var) = std::env::var("PATH") {
         for path in std::env::split_paths(&path_var) {
@@ -8,7 +11,7 @@ pub fn find_executable_in_path(cmd_name: &str) -> Option<PathBuf> {
             if executable_path.is_file() {
                 if let Ok(metadata) = executable_path.metadata() {
                     let permissions = metadata.permissions();
-                    if permissions.mode() & 0o111 != 0 {
+                    if permissions.mode() & PERMISSION_EXECUTE_MASK != 0 {
                         return Some(executable_path);
                     }
                 }
@@ -30,7 +33,7 @@ pub fn find_executables_with_prefix(prefix: &str) -> Vec<String> {
                             if let Ok(metadata) = entry.metadata() {
                                 if metadata.is_file() {
                                     let permissions = metadata.permissions();
-                                    if permissions.mode() & 0o111 != 0 {
+                                    if permissions.mode() & PERMISSION_EXECUTE_MASK != 0 {
                                         executables.push(file_name);
                                     }
                                 }

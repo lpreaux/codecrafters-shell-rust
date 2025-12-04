@@ -150,7 +150,7 @@ impl Lexer {
     #[inline]
     fn push_word_if_not_empty(tokens: &mut Vec<Token>, curr: &mut String) {
         if !curr.is_empty() {
-            tokens.push(Token::Word(curr.clone()));
+            tokens.push(Token::Litteral(curr.clone()));
             curr.clear();
         }
     }

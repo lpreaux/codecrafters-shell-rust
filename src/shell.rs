@@ -9,6 +9,19 @@ use crate::utils::path::find_executables_with_prefix;
 use std::fs::OpenOptions;
 use std::process::Command;
 
+// Constantes pour les codes de caractères spéciaux
+const CHAR_NEWLINE: u8 = b'\n';
+const CHAR_CARRIAGE_RETURN: u8 = b'\r';
+const CHAR_TAB: u8 = b'\t';
+const CHAR_BACKSPACE_DELETE: u8 = 127;
+const CHAR_BACKSPACE: u8 = 8;
+const CHAR_PRINTABLE_MIN: u8 = 32;
+const CHAR_PRINTABLE_MAX: u8 = 127;
+
+// Constantes pour les séquences d'échappement
+const ESCAPE_BELL: &str = "\x07";
+const ESCAPE_ERASE_CHAR: &str = "\x08 \x08";
+
 pub struct Shell {
     command_registry: CommandRegistry,
     original_termios: Option<Termios>,
@@ -41,26 +54,26 @@ impl Shell {
                 io::stdin().read_exact(&mut buffer).unwrap();
 
                 match buffer[0] {
-                    b'\n' | b'\r' => {
+                    CHAR_NEWLINE | CHAR_CARRIAGE_RETURN => {
                         // Enter : fin de saisie
                         println!();
                         self.last_autocomplete_input = None;
                         break;
                     }
-                    b'\t' => {
+                    CHAR_TAB => {
                         // Tab : autocompletion
                         self.handle_autocomplete(&mut input);
                     }
-                    127 | 8 => {
+                    CHAR_BACKSPACE_DELETE | CHAR_BACKSPACE => {
                         // Backspace (127 sur Linux, 8 sur certains systèmes)
                         if !input.is_empty() {
                             input.pop();
-                            print!("\x08 \x08"); // Efface visuellement
+                            print!("{}", ESCAPE_ERASE_CHAR); // Efface visuellement
                             io::stdout().flush().unwrap();
                         }
                         self.last_autocomplete_input = None;
                     }
-                    c if c >= 32 && c < 127 => {
+                    c if c >= CHAR_PRINTABLE_MIN && c < CHAR_PRINTABLE_MAX => {
                         // Caractère imprimable
                         let ch = c as char;
                         input.push(ch);
@@ -217,9 +230,17 @@ impl Shell {
 
         let prefix = parts.get(0).unwrap_or(&"");
 
-        let mut matches =
-            self.command_registry.find_command_starting_with(prefix);
-        matches.extend(find_executables_with_prefix(prefix));
+        // Collecter les built-in commands et les commandes PATH
+        let builtin_matches = self.command_registry.find_command_starting_with(prefix);
+        let path_matches = find_executables_with_prefix(prefix);
+
+        // Fusionner en Vec<String> pour l'homogénéité
+        let mut matches: Vec<String> = builtin_matches
+            .into_iter()
+            .map(String::from)
+            .chain(path_matches.into_iter())
+            .collect();
+
         matches.sort();
         matches.dedup();
 
@@ -264,7 +285,7 @@ impl Shell {
     fn complete_input(&self, input: &mut String, completion: &str) {
         // Effacer l'input actuel visuellement
         for _ in 0..input.len() {
-            print!("\x08 \x08");
+            print!("{}", ESCAPE_ERASE_CHAR);
         }
 
         // Remplacer par la complétion
@@ -284,7 +305,7 @@ impl Shell {
     }
 
     fn ring_bell(&self) {
-        print!("\x07");
+        print!("{}", ESCAPE_BELL);
         io::stdout().flush().unwrap();
     }
 
